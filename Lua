@@ -1,0 +1,54 @@
+local http = require "resty.http"
+local cjson = require "cjson"
+
+local function send_telemetry_data(data)
+    local httpc = http.new()
+    local res, err = httpc:request_uri("http://otel-collector:4318/v1/traces", {
+        method = "POST",
+        body = cjson.encode(data),
+        headers = {
+            ["Content-Type"] = "application/json",
+        }
+    })
+
+    if not res then
+        ngx.log(ngx.ERR, "Failed to send telemetry data: ", err)
+        return
+    end
+end
+
+local function capture_telemetry()
+    local status = tonumber(ngx.var.status)
+    if status >= 400 and status < 600 then  -- Check for error status codes
+        local trace_id = -- Generate or retrieve a trace ID
+        local span_id = -- Generate or retrieve a span ID
+
+        local telemetry_data = {
+            -- Format the data according to OpenTelemetry's model
+            resource_spans = {
+                instrumentation_library_spans = {
+                    spans = {
+                        {
+                            trace_id = trace_id,
+                            span_id = span_id,
+                            name = "nginx_error_request",
+                            start_time_unix_nano = ngx.req.start_time() * 1e9,
+                            end_time_unix_nano = ngx.now() * 1e9,
+                            attributes = {
+                                -- Add attributes relevant to the error trace
+                                { key = "http.method", value = { string_value = ngx.var.request_method }},
+                                { key = "http.url", value = { string_value = ngx.var.request_uri }},
+                                { key = "http.status_code", value = { int_value = ngx.var.status }},
+                                -- Add more attributes as needed
+                            },
+                        }
+                    }
+                }
+            }
+        }
+
+        send_telemetry_data(telemetry_data)
+    end
+end
+
+capture_telemetry()
