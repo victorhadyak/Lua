@@ -1,12 +1,25 @@
-http {
-    lua_package_path '/path/to/your/lua/scripts/?.lua;;';
+# Global settings
+user nginx;
+worker_processes auto;
 
+# HTTP context settings
+http {
+    # Include MIME types, this line is typically included by default
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    # Other HTTP-level settings
+    # ...
+
+    # Lua package path (if using Lua)
+    lua_package_path '/path/to/lua/scripts/?.lua;;';
+
+    # Server blocks
     server {
         listen 80;
-        
-        location / {
-            proxy_pass http://your_backend_service;
-            log_by_lua_file /path/to/your/lua/scripts/capture_telemetry.lua;
-        }
+        # server configuration...
     }
+
+    # Other server blocks as needed
+    # ...
 }
