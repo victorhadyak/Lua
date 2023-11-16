@@ -15,3 +15,4 @@ RUN echo 'http {\n\
         log_by_lua_file /opt/nginx/config/script.lua;\n\
     }\n\
 }' >> /usr/local/openresty/nginx/conf/nginx.conf
+RUN sed -i '0,/http {/s//lua_package_path "\/opt\/nginx\/config\/?.lua;;";\nhttp {/' /usr/local/openresty/nginx/conf/nginx.conf
