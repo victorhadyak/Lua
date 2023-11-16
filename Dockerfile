@@ -22,3 +22,8 @@ RUN sed -i '0,/http {/s//lua_package_path "\/opt\/nginx\/config\/?.lua;;";\nhttp
 
 # Add log_by_lua_file to a specific server block
 RUN sed -i '/server_name yourserver.com;/a \    log_by_lua_file /opt/nginx/config/your_lua_script.lua;' /usr/local/openresty/nginx/conf/nginx.conf
+# Mark the position after server_name nginxcon;
+RUN sed -i '/server_name nginxcon;/a \# INSERT_LUA_HERE' /usr/local/openresty/nginx/conf/nginx.conf
+
+# Add log_by_lua_file directive after the marker
+RUN sed -i '/# INSERT_LUA_HERE/a \    log_by_lua_file /opt/nginx/config/your_lua_script.lua;' /usr/local/openresty/nginx/conf/nginx.conf
