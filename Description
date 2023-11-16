@@ -1,0 +1,16 @@
+OpenResty proxy merely receives and redirects requests, the Lua script within it will only be able to capture and trace the part of the request's journey that goes through the proxy itself. It won't automatically trace the entire path of the request through your entire system unless other parts of the system are also instrumented for tracing.
+
+In a distributed system where a request travels through multiple components (like microservices, databases, external APIs), each component needs to be instrumented to contribute its part to the overall trace. Here's how it typically works:
+
+Initial Request at Proxy: When a request hits your NGINX/OpenResty proxy, the Lua script can create a trace or a span for this initial interaction. This includes details like request start time, headers, method, URL, etc.
+
+Propagation of Trace Context: For a complete trace, the trace context (which includes identifiers like trace ID and span ID) needs to be propagated from the proxy to downstream services. This usually involves adding trace context information to the HTTP headers of the outgoing request from the proxy.
+
+Instrumentation of Downstream Services: Each downstream service (like an API service, a database call, etc.) should be instrumented to understand and continue the trace. This means that when they receive a request, they should extract the trace context from the headers, create their own spans for their part of the processing, and continue the trace.
+
+Collection and Visualization: Each service, including your NGINX/OpenResty proxy, sends its span data to a central telemetry system like OpenTelemetry Collector. The collector then forwards this data to a visualization and analysis tool like DataDog, where the complete trace is reconstructed and can be viewed.
+
+End-to-End Trace: In DataDog, you would see an end-to-end trace that includes spans from NGINX/OpenResty and all other instrumented services, showing the entire path and processing of the request across your system.
+
+Without instrumentation in downstream services, the trace will only show the part of the request's journey that occurs within the NGINX/OpenResty layer, and won't include further details of what happens after the request is forwarded.
+ 
