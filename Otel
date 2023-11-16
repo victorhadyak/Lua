@@ -1,0 +1,20 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: "0.0.0.0:4318"
+
+exporters:
+  datadog:
+    api:
+      key: "<DATADOG_API_KEY>"
+    metrics:
+      resource_attributes_as_tags: true
+    traces:
+      resource_attributes_as_tags: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [datadog]
