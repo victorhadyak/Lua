@@ -1,0 +1,12 @@
+http {
+    lua_package_path '/path/to/your/lua/scripts/?.lua;;';
+
+    server {
+        listen 80;
+        
+        location / {
+            proxy_pass http://your_backend_service;
+            log_by_lua_file /path/to/your/lua/scripts/capture_telemetry.lua;
+        }
+    }
+}
