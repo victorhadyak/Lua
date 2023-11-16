@@ -16,3 +16,9 @@ RUN echo 'http {\n\
     }\n\
 }' >> /usr/local/openresty/nginx/conf/nginx.conf
 RUN sed -i '0,/http {/s//lua_package_path "\/opt\/nginx\/config\/?.lua;;";\nhttp {/' /usr/local/openresty/nginx/conf/nginx.conf
+RUN sed -i '/server {/a \    log_by_lua_file /opt/nginx/config/your_lua_script.lua;' /usr/local/openresty/nginx/conf/nginx.conf
+# Add lua_package_path above the http block
+RUN sed -i '0,/http {/s//lua_package_path "\/opt\/nginx\/config\/?.lua;;";\nhttp {/' /usr/local/openresty/nginx/conf/nginx.conf
+
+# Add log_by_lua_file to a specific server block
+RUN sed -i '/server_name yourserver.com;/a \    log_by_lua_file /opt/nginx/config/your_lua_script.lua;' /usr/local/openresty/nginx/conf/nginx.conf
