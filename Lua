@@ -38,3 +38,58 @@ ngx.req.end_span = function()
         end_span(span, ngx.req, resp)
     end
 end
+
+
+
+
+local OpenTelemetry = require "opentelemetry.tracer"
+
+-- Configure the tracer
+local tracer = OpenTelemetry.tracer("nginx_tracer")
+
+-- Function to log messages to Nginx error log
+local function log_debug(message)
+    ngx.log(ngx.DEBUG, message)
+end
+
+-- Function to start a span for a request
+local function start_span(req)
+    log_debug("Starting span for request")
+    local span = tracer:start_span("http_request")
+    span:set_attribute("http.method", req.method)
+    span:set_attribute("http.url", req.url)
+    return span
+end
+
+-- Function to end a span for a request
+local function end_span(span, req, resp)
+    log_debug("Ending span for request")
+    span:set_attribute("http.status_code", resp.status)
+    -- Note: Getting the response body size might need a different approach
+    span:set_attribute("http.response_size", string.len(resp.body or ""))
+    span:end_span()
+end
+
+-- Hook into OpenResty's request processing
+ngx.req.start_span = function()
+    log_debug("Request start")
+    local req = {
+        method = ngx.var.request_method,
+        url = ngx.var.scheme .. "://" .. ngx.var.host .. ":" .. ngx.var.server_port .. ngx.var.request_uri
+    }
+    local span = start_span(req)
+    ngx.ctx.opentelemetry_span = span
+end
+
+ngx.req.end_span = function()
+    local span = ngx.ctx.opentelemetry_span
+    if span then
+        log_debug("Request end")
+        local resp = {
+            status = ngx.status,
+            body = ngx.var.response_body  -- This might not work as expected
+        }
+        end_span(span, ngx.req, resp)
+    end
+end
+
