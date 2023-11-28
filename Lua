@@ -1,100 +1,87 @@
+local cjson = require "cjson"
+local http = require "resty.http"
 
-
-
-
-
-local OpenTelemetry = require "opentelemetry.tracer"
-
--- Configure the tracer
-local tracer = OpenTelemetry.tracer("nginx_tracer")
-
--- Function to start a span for a request
-local function start_span(req)
-    local span = tracer:start_span("http_request")
-    span:set_attribute("http.method", req.method)
-    span:set_attribute("http.url", req.url)
-    -- Include more attributes as needed
-    return span
-end
-
--- Function to end a span for a request
-local function end_span(span, req, resp)
-    span:set_attribute("http.status_code", resp.status)
-    -- Include more attributes as needed
-    span:end_span()
-end
-
--- Export the functions to be used in Nginx conf
-return {
-    start_span = function()
-        local req = {
-            method = ngx.var.request_method,
-            url = ngx.var.scheme .. "://" .. ngx.var.host .. ":" .. ngx.var.server_port .. ngx.var.request_uri
-        }
-        local span = start_span(req)
-        ngx.ctx.opentelemetry_span = span
-    end,
-    end_span = function()
-        local span = ngx.ctx.opentelemetry_span
-        if span then
-            local resp = {
-                status = ngx.status,
-                -- body = ... -- Capture response body if necessary
-            }
-            end_span(span, ngx.req, resp)
-        end
-    end
+local tracer = {
+    spans = {}
 }
 
+-- Starts a new span for a request
+function tracer:start_span()
 
+local uuid = require "resty.jit-uuid"
+uuid.seed()  -- Seed the random number generator
 
-
-
-
-
-local OpenTelemetry = require "opentelemetry.tracer"
-
--- Configure the tracer
-local tracer = OpenTelemetry.tracer("nginx_tracer")
-
--- Function to start a span for a request
-local function start_span(req)
-    local span = tracer:start_span("http_request")
-    span:set_attribute("http.method", req.method)
-    span:set_attribute("http.url", req.url)
-    -- Add more attributes based on available Nginx variables
-    span:set_attribute("http.remote_ip", ngx.var.remote_addr)
-    span:set_attribute("http.origin", ngx.var.http_origin)
-    -- ... Add other relevant attributes
-    return span
-end
-
--- Function to end a span for a request
-local function end_span(span, req, resp)
-    span:set_attribute("http.status_code", resp.status)
-    -- Note: Adjust response size capturing as per Nginx capability
-    span:set_attribute("http.response_size", string.len(resp.body or ""))
-    span:end_span()
-end
-
--- Hook into OpenResty's request processing
-ngx.req.start_span = function()
-    local req = {
+function tracer:start_span()
+    local span = {
+        id = uuid(),  -- Generate a new UUID for each span
+        trace_id = uuid(),  -- Generate a unique trace ID      
+        start_time = ngx.now(),  -- Start time
         method = ngx.var.request_method,
-        url = ngx.var.scheme .. "://" .. ngx.var.host .. ":" .. ngx.var.server_port .. ngx.var.request_uri
+        url = ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.uri
+        -- Include additional span attributes as needed
     }
-    local span = start_span(req)
+    table.insert(self.spans, span)
     ngx.ctx.opentelemetry_span = span
 end
 
-ngx.req.end_span = function()
+-- Ends the current span for a request
+function tracer:end_span()
     local span = ngx.ctx.opentelemetry_span
     if span then
-        local resp = {
-            status = ngx.status,
-            body = ngx.var.response_body  -- Adjust as needed
+        span.end_time = ngx.now()  -- End time
+        -- Include additional span closure logic as needed
+    end
+    return span
+end
+
+-- Formats the trace data into the OTel collector's expected format
+local function format_trace_data(span)
+    local trace_data = {
+        -- Populate the required fields as per your OTel collector's format
+        -- This might include trace ID, span ID, parent span ID, etc.
+        -- Example:
+        trace_id = "some_trace_id",  -- Adjust based on actual trace ID logic
+        spans = {
+            {
+                trace_id = "some_trace_id",
+                span_id = tostring(span.id),
+                parent_span_id = "parent_span_id",  -- If applicable
+                name = span.method .. " " .. span.url,
+                start_time_unix_nano = span.start_time,
+                end_time_unix_nano = span.end_time,
+                -- Include additional span data as needed
+            }
         }
-        end_span(span, ngx.req, resp)
+    }
+    return cjson.encode(trace_data)
+end
+
+-- Sends trace data to the OTel collector
+local function send_trace_to_collector(formatted_data)
+    local httpc = http.new()
+    local res, err = httpc:request_uri("http://otel-collector:port/v1/traces", {
+        method = "POST",
+        body = formatted_data,
+        headers = {
+            ["Content-Type"] = "application/json",
+        },
+    })
+
+    if not res then
+        ngx.log(ngx.ERR, "Failed to send trace data: ", err)
+        return
+    end
+
+    if res.status < 200 or res.status >= 300 then
+        ngx.log(ngx.ERR, "Failed to send trace data, status: ", res.status)
     end
 end
+
+-- Error logging utility
+local function log_error(...)
+    ngx.log(ngx.ERR, ...)
+end
+
+return tracer
+
 
