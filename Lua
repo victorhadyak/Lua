@@ -1,55 +1,57 @@
 local cjson = require "cjson"
 local http = require "resty.http"
-
-local tracer = {
-    spans = {}
-}
-
--- Starts a new span for a request
-function tracer:start_span()
-
 local uuid = require "resty.jit-uuid"
+local span_context = require("span_context")  -- Assuming this module is properly defined
+local span_kind = require("span_kind")  -- Assuming this module is properly defined
+
 uuid.seed()  -- Seed the random number generator
 
+local tracer = {
+    -- You might need to add provider details or id_generator based on your setup
+}
+
+-- Start a new span
 function tracer:start_span()
+    local trace_id, span_id = uuid(), uuid()  -- Generate new trace and span IDs
+
+    local new_span_context = span_context.new(trace_id, span_id, 0, nil, false)
+
+    local span_name = ngx.var.request_method .. " " .. ngx.var.uri
+    local kind = span_kind.validate(span_kind.server)  -- Example: server span
+
     local span = {
-        id = uuid(),  -- Generate a new UUID for each span
-        trace_id = uuid(),  -- Generate a unique trace ID      
+        context = new_span_context,
+        name = span_name,
+        kind = kind,
         start_time = ngx.now(),  -- Start time
-        method = ngx.var.request_method,
-        url = ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.uri
-        -- Include additional span attributes as needed
+        -- Additional span attributes can be added here
     }
-    table.insert(self.spans, span)
+
     ngx.ctx.opentelemetry_span = span
 end
 
--- Ends the current span for a request
+-- End the current span
 function tracer:end_span()
     local span = ngx.ctx.opentelemetry_span
     if span then
         span.end_time = ngx.now()  -- End time
-        -- Include additional span closure logic as needed
     end
     return span
 end
 
--- Formats the trace data into the OTel collector's expected format
+-- Formats the trace data for the OTel collector
 local function format_trace_data(span)
     local trace_data = {
-        -- Populate the required fields as per your OTel collector's format
-        -- This might include trace ID, span ID, parent span ID, etc.
-        -- Example:
-        trace_id = "some_trace_id",  -- Adjust based on actual trace ID logic
+        trace_id = span.context.trace_id,
         spans = {
             {
-                trace_id = "some_trace_id",
-                span_id = tostring(span.id),
-                parent_span_id = "parent_span_id",  -- If applicable
-                name = span.method .. " " .. span.url,
-                start_time_unix_nano = span.start_time,
-                end_time_unix_nano = span.end_time,
-                -- Include additional span data as needed
+                trace_id = span.context.trace_id,
+                span_id = span.context.span_id,
+                name = span.name,
+                start_time_unix_nano = span.start_time * 1e9,
+                end_time_unix_nano = span.end_time * 1e9,
+                kind = span.kind,
+                -- Add additional span data as needed
             }
         }
     }
@@ -77,11 +79,4 @@ local function send_trace_to_collector(formatted_data)
     end
 end
 
--- Error logging utility
-local function log_error(...)
-    ngx.log(ngx.ERR, ...)
-end
-
 return tracer
-
-
