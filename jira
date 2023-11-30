@@ -1,0 +1,22 @@
+{
+  "fields": {
+    "project": {
+      "key": "PROJ" // Replace 'PROJ' with your project key
+    },
+    "summary": "Task Summary", // Replace with task name
+    "description": "Task Description", // Replace with task description
+    "issuetype": {
+      "name": "Task" // Or any other issue type like Story, Bug, etc.
+    },
+    "priority": {
+      "name": "Medium" // Replace with the required priority (e.g., High, Low)
+    },
+    "assignee": {
+      "name": "assignee_username" // Replace with the username of the assignee
+    },
+    // Replace 'customfield_xxxx' with the actual field ID for acceptance criteria
+    "customfield_XXXXX": "Acceptance Criteria here", // Replace with the actual acceptance criteria
+    // Other custom fields (like story points) - replace 'customfield_xxxx' with actual field IDs.
+    "customfield_YYYYY": 5 // Example for story points
+  }
+}
