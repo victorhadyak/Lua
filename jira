@@ -20,3 +20,20 @@
     "customfield_YYYYY": 5 // Example for story points
   }
 }
+
+
+payload = {
+    "fields": {
+        "project": {"key": "PROJ"},  # Replace 'PROJ' with your project key
+        "summary": "Task Summary",  # Replace with task name
+        "description": "Task Description",  # Replace with task description
+        "issuetype": {"name": "Task"},  # Or any other issue type like Story, Bug, etc.
+        "priority": {"name": "Medium"},  # Replace with the required priority (e.g., High, Low)
+        "assignee": {"name": "assignee_username"},  # Replace with the username of the assignee
+        "customfield_XXXXX": "Acceptance Criteria here",  # Replace 'XXXXX' with the actual field ID
+        "customfield_YYYYY": 5  # Example for story points, replace 'YYYYY' with the actual field ID
+    }
+}
+
+# Convert payload to JSON
+payload_json = json.dumps(payload)
