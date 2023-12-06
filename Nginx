@@ -1,25 +1,27 @@
 http {
     lua_package_path "/path/to/lua/scripts/?.lua;;";
 
+    init_by_lua_block {
+        tracing = require("tracing").new()
+    }
+
     server {
         listen 80;
 
         access_by_lua_block {
-            local tracer = require("tracing_script")
-            tracer:start_span()
+            local span = tracing:create_span("request_span")
+            -- Set any additional span attributes here
         }
 
         location / {
-            # existing server configuration
+            # Your server configuration
         }
 
         log_by_lua_block {
-            local tracer = require("tracing_script")
-            local span = tracer:end_span()
-            local formatted_data = format_trace_data(span)
-            send_trace_to_collector(formatted_data)
+            local span = tracing.spans[#tracing.spans]  -- Get the last created span
+            tracing:end_span(span)
+            local trace_data = tracing:export_span(span)
+            tracing:send_trace_to_collector(trace_data)
         }
     }
-
-    # Other server configurations
-
+}
