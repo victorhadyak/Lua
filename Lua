@@ -80,3 +80,4 @@ local function send_trace_to_collector(formatted_data)
 end
 
 return tracer
+
