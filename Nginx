@@ -2,6 +2,7 @@ http {
     lua_package_path "/path/to/lua/scripts/?.lua;;";
 
     init_by_lua_block {
+        -- Initialize a global tracing object when Nginx starts.
         tracing = require("tracing").new()
     }
 
@@ -9,8 +10,9 @@ http {
         listen 80;
 
         access_by_lua_block {
+            -- Create a new span at the start of each HTTP request.
             local span = tracing:create_span("request_span")
-            -- Set any additional span attributes here
+            -- Additional span attributes can be set here.
         }
 
         location / {
@@ -18,8 +20,10 @@ http {
         }
 
         log_by_lua_block {
-            local span = tracing.spans[#tracing.spans]  -- Get the last created span
+            -- Retrieve the last created span and mark its completion.
+            local span = tracing.spans[#tracing.spans]
             tracing:end_span(span)
+            -- Export and send the span data to the collector.
             local trace_data = tracing:export_span(span)
             tracing:send_trace_to_collector(trace_data)
         }
