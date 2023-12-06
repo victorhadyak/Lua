@@ -1,25 +1,25 @@
-# Global settings
-user nginx;
-worker_processes auto;
-
-# HTTP context settings
 http {
-    # Include MIME types, this line is typically included by default
-    include       mime.types;
-    default_type  application/octet-stream;
+    lua_package_path "/path/to/lua/scripts/?.lua;;";
 
-    # Other HTTP-level settings
-    # ...
-
-    # Lua package path (if using Lua)
-    lua_package_path '/path/to/lua/scripts/?.lua;;';
-
-    # Server blocks
     server {
         listen 80;
-        # server configuration...
+
+        access_by_lua_block {
+            local tracer = require("tracing_script")
+            tracer:start_span()
+        }
+
+        location / {
+            # existing server configuration
+        }
+
+        log_by_lua_block {
+            local tracer = require("tracing_script")
+            local span = tracer:end_span()
+            local formatted_data = format_trace_data(span)
+            send_trace_to_collector(formatted_data)
+        }
     }
 
-    # Other server blocks as needed
-    # ...
-}
+    # Other server configurations
+
