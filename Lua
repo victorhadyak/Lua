@@ -1,69 +1,55 @@
 local cjson = require "cjson"
 local http = require "resty.http"
 local uuid = require "resty.jit-uuid"
-local span_context = require("span_context")  -- Assuming this module is properly defined
-local span_kind = require("span_kind")  -- Assuming this module is properly defined
 
-uuid.seed()  -- Seed the random number generator
+-- Seed the random number generator
+uuid.seed()
 
-local tracer = {
-    -- You might need to add provider details or id_generator based on your setup
-}
+local Tracing = {}
 
--- Start a new span
-function tracer:start_span()
-    local trace_id, span_id = uuid(), uuid()  -- Generate new trace and span IDs
-
-    local new_span_context = span_context.new(trace_id, span_id, 0, nil, false)
-
-    local span_name = ngx.var.request_method .. " " .. ngx.var.uri
-    local kind = span_kind.validate(span_kind.server)  -- Example: server span
-
-    local span = {
-        context = new_span_context,
-        name = span_name,
-        kind = kind,
-        start_time = ngx.now(),  -- Start time
-        -- Additional span attributes can be added here
+function Tracing:new()
+    local instance = {
+        spans = {},
+        context = {}
     }
-
-    ngx.ctx.opentelemetry_span = span
+    setmetatable(instance, { __index = Tracing })
+    return instance
 end
 
--- End the current span
-function tracer:end_span()
-    local span = ngx.ctx.opentelemetry_span
-    if span then
-        span.end_time = ngx.now()  -- End time
-    end
+function Tracing:create_span(name)
+    local span = {
+        trace_id = uuid(),
+        span_id = uuid(),
+        name = name,
+        start_time = ngx.now(),
+        end_time = nil,
+        attributes = {}
+    }
+    table.insert(self.spans, span)
     return span
 end
 
--- Formats the trace data for the OTel collector
-local function format_trace_data(span)
+function Tracing:end_span(span)
+    span.end_time = ngx.now()
+end
+
+function Tracing:add_attribute(span, key, value)
+    span.attributes[key] = value
+end
+
+function Tracing:export_span(span)
     local trace_data = {
-        trace_id = span.context.trace_id,
-        spans = {
-            {
-                trace_id = span.context.trace_id,
-                span_id = span.context.span_id,
-                name = span.name,
-                start_time_unix_nano = span.start_time * 1e9,
-                end_time_unix_nano = span.end_time * 1e9,
-                kind = span.kind,
-                -- Add additional span data as needed
-            }
-        }
+        -- Populate the trace data structure
+        -- Convert timestamps to the required format
     }
     return cjson.encode(trace_data)
 end
 
--- Sends trace data to the OTel collector
-local function send_trace_to_collector(formatted_data)
+function Tracing:send_trace_to_collector(trace_data)
     local httpc = http.new()
     local res, err = httpc:request_uri("http://otel-collector:port/v1/traces", {
         method = "POST",
-        body = formatted_data,
+        body = trace_data,
         headers = {
             ["Content-Type"] = "application/json",
         },
@@ -79,5 +65,4 @@ local function send_trace_to_collector(formatted_data)
     end
 end
 
-return tracer
-
+return Tracing
