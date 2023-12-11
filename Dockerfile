@@ -1,35 +1,33 @@
-# Use the OpenResty image as the base
-FROM openresty/openresty:latest
+# Start from the OpenResty base image
+FROM openresty/openresty:alpine
 
-# Copy your Lua script into the container
-COPY /path/to/your/script.lua /opt/nginx/config/script.lua
+# Install necessary packages and LuaRocks
+RUN apk add --no-cache --virtual .build-deps \
+        git \
+        build-base \
+        lua5.1-dev \
+    && luarocks install lua-resty-http  # Install any additional dependencies
 
-# Modify nginx.conf to include the Lua script
-RUN echo 'http {\n\
-    lua_package_path "/opt/nginx/config/?.lua;;";  # Adjust the path as necessary\n\
-    \n\
-    server {\n\
-        # ... other server configuration ...\n\
-        \n\
-        # Use the Lua script in a particular context, for example:\n\
-        log_by_lua_file /opt/nginx/config/script.lua;\n\
-    }\n\
-}' >> /usr/local/openresty/nginx/conf/nginx.conf
-RUN sed -i '0,/http {/s//lua_package_path "\/opt\/nginx\/config\/?.lua;;";\nhttp {/' /usr/local/openresty/nginx/conf/nginx.conf
-RUN sed -i '/server {/a \    log_by_lua_file /opt/nginx/config/your_lua_script.lua;' /usr/local/openresty/nginx/conf/nginx.conf
-# Add lua_package_path above the http block
-RUN sed -i '0,/http {/s//lua_package_path "\/opt\/nginx\/config\/?.lua;;";\nhttp {/' /usr/local/openresty/nginx/conf/nginx.conf
+# Clone the OpenTelemetry-Lua project
+RUN git clone https://github.com/yangxikun/opentelemetry-lua.git /tmp/opentelemetry-lua
 
-# Add log_by_lua_file to a specific server block
-RUN sed -i '/server_name yourserver.com;/a \    log_by_lua_file /opt/nginx/config/your_lua_script.lua;' /usr/local/openresty/nginx/conf/nginx.conf
-# Mark the position after server_name nginxcon;
-RUN sed -i '/server_name nginxcon;/a \# INSERT_LUA_HERE' /usr/local/openresty/nginx/conf/nginx.conf
+# Install the OpenTelemetry-Lua module using LuaRocks
+RUN cd /tmp/opentelemetry-lua && luarocks make
 
-# Add log_by_lua_file directive after the marker
-RUN sed -i '/# INSERT_LUA_HERE/a \    log_by_lua_file /opt/nginx/config/your_lua_script.lua;' /usr/local/openresty/nginx/conf/nginx.conf
-# Mark the position after server_name nginxcon;
-RUN sed -i '/server_name nginxcon;/a \# INSERT_LUA_HERE' /usr/local/openresty/nginx/conf/nginx.conf
-RUN awk '/server {/{flag=0} /server_name nginxcon;/{flag=1} flag && /}/{print "    log_by_lua_file /opt/nginx/config/your_lua_script.lua;"; flag=0} 1' /usr/local/openresty/nginx/conf/nginx.conf > temp.conf && mv temp.conf /usr/local/openresty/nginx/conf/nginx.conf
+# Clean up
+RUN apk del .build-deps \
+    && rm -rf /tmp/opentelemetry-lua
 
-# Add log_by_lua_file directive after the marker
-RUN sed -i '/# INSERT_LUA_HERE/a \    log_by_lua_file /opt/nginx/config/your_lua_script.lua;' /usr/local/openresty/nginx/conf/nginx.conf
+# Copy your Nginx configuration files
+# Assuming you have your nginx.conf and any other necessary files in a directory called "nginx"
+COPY nginx /etc/nginx/
+
+# Set the working directory
+WORKDIR /usr/local/openresty/nginx
+
+# Expose the port Nginx is listening on
+EXPOSE 80
+
+# Start Nginx
+CMD ["/usr/local/openresty/bin/openresty", "-g", "daemon off;"]
+
