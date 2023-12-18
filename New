@@ -34,3 +34,29 @@ clusters:
             socket_address:
               address: otel-collector
               port_value: 4317
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"  # Ensure this matches the endpoint in Envoy config
+
+exporters:
+  datadog:
+    api:
+      key:"API_KEY>"
+    metrics:
+      resource_attributes_as_tags: true
+    traces:
+      sample_rate: 1.0
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: []
+      exporters: [datadog]
+    metrics:
+      receivers: [otlp]
+      processors: []
+      exporters: [datadog]
