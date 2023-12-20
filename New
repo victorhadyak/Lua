@@ -1,62 +1,24 @@
-static_resources:
-  listeners:
-  - address:
-      socket_address:
-        address: 0.0.0.0
-        port_value: 8080
-    filter_chains:
-    - filters:
-      - name: envoy.filters.network.http_connection_manager
-        typed_config:
-          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-          ...
-          tracing:
-            provider:
-              name: envoy.tracers.opentelemetry
-              typed_config:
-                "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
-                grpc_service:
-                  envoy_grpc:
-                    cluster_name: otel-collector-cluster
-          ...
 clusters:
-- name: otel-collector-cluster
-  type: STRICT_DNS
-  connect_timeout: 1s
-  lb_policy: ROUND_ROBIN
-  http2_protocol_options: {}
-  load_assignment:
-    cluster_name: otel-collector-cluster
-    endpoints:
-    - lb_endpoints:
-      - endpoint:
-          address:
-            socket_address:
-              address: otel-collector
-              port_value: 4317
-
-receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: "0.0.0.0:4317"  # Ensure this matches the endpoint in Envoy config
-
-exporters:
-  datadog:
-    api:
-      key:"API_KEY>"
-    metrics:
-      resource_attributes_as_tags: true
-    traces:
-      sample_rate: 1.0
-
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: []
-      exporters: [datadog]
-    metrics:
-      receivers: [otlp]
-      processors: []
-      exporters: [datadog]
+  - name: opentelemetry_collector
+    type: STRICT_DNS  # or STATIC, depending on your setup
+    connect_timeout: 1s
+    lb_policy: ROUND_ROBIN
+    # Define HTTP/2 protocol for gRPC
+    http2_protocol_options: {}
+    # Define the addresses of your OpenTelemetry collector
+    load_assignment:
+      cluster_name: opentelemetry_collector
+      endpoints:
+        - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: <otel-collector-address>  # Replace with the actual address of your OpenTelemetry collector
+                    port_value: <otel-collector-port>   # Replace with the actual port of your OpenTelemetry collector
+    # If you need to configure TLS, include the transport_socket section
+    # transport_socket:
+    #   name: envoy.transport_sockets.tls
+    #   typed_config:
+    #     "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+    #     common_tls_context:
+    #       # TLS settings go here
